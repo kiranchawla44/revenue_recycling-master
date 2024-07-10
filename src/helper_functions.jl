@@ -641,7 +641,14 @@ function save_nice_recycle_results(m_policy::Model, m_bau::Model, opt_tax::Array
     save(joinpath(regional_path, "regional_co2_mitigation.csv"), DataFrame(m_policy[:emissions, :MIU], :auto))
     save(joinpath(regional_path, "co2_tax_revenue.csv"), DataFrame(m_policy[:nice_recycle, :tax_revenue], :auto))
     save(joinpath(regional_path, "co2_income_elasticity.csv"), DataFrame(m_policy[:nice_recycle, :CO₂_income_elasticity], :auto))
-
+    
+    # LandDoutputs
+    save(joinpath(regional_path, "emissionsshare.csv"), DataFrame(m_policy[:nice_recycle, :emissionsshare], :auto))
+    save(joinpath(regional_path, "damagesshare.csv"), DataFrame(m_policy[:nice_recycle, :damagesshare], :auto))
+    save(joinpath(regional_path, "regionalLandDpayment.csv"), DataFrame(m_policy[:nice_recycle, :regionalLandDpayment], :auto))
+    save(joinpath(regional_path, "DAMAGES.csv"), DataFrame(m_policy[:nice_recycle, :DAMAGES], :auto))
+    
+                                            
     # Save Quintile Output.
     save(joinpath(quintile_path, "co2_tax_distribution_Q1.csv"), DataFrame(m_policy[:nice_recycle, :carbon_tax_dist][:,:,1], :auto))
     save(joinpath(quintile_path, "co2_tax_distribution_Q2.csv"), DataFrame(m_policy[:nice_recycle, :carbon_tax_dist][:,:,2], :auto))

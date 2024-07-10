@@ -45,6 +45,17 @@
     qc_post_tax              = Variable(index=[time, regions, quintiles])  # Quintile per capita consumption after subtracting out carbon tax (thousands 2005 USD/person yr⁻¹).
     qc_post_recycle          = Variable(index=[time, regions, quintiles])  # Quintile per capita consumption after recycling tax back to quintiles (thousands 2005 USD/person yr⁻¹).
 
+    
+    # --------------------
+    # Loss and damages addition
+    # --------------------
+    emissionsshare                = Parameter(index=[time, regions]) # share of emissions for L&D
+    damagesshare                  = Parameter(index=[time, regions]) # share of damages for L&D
+    regionalLandDpayment_dynamic  = Parameter(index=[time, regions]) # calculate L&D payments in the model and output them for two-stage approach to optimization   
+    DAMAGES                       = Parameter(index=[time, regions]) # Climate damages in trillions 2005USD.
+    regionalLandDpayment          = Parameter(index=[time, regions]) # regionalLandDpayment_dynamic from base case revenue recycling output in trillions 2005USD (fixed exogenous stream instead of endogenous calculation).
+
+
 
     function run_timestep(p, v, d, t)
 
@@ -72,10 +83,16 @@
             # Note, emissions in GtC and tax in dollars, so scale by 1e9.
             v.tax_revenue[t,r] = (p.industrial_emissions[t,r] * p.global_carbon_tax[t] * 1e9) * (1.0 - p.lost_revenue_share)
         end
+        
+        #Subtract the L&D obligations term calculated below from the carbon tax revenue pool
+            p.emissionsshare[t,r] = p.industrial_emissions[t,r]./sum(p.industrial_emissions[t,:])
+            p.damagesshare[t,r] = p.DAMAGES[t,r] ./ sum(p.DAMAGES[t,:])
+            p.regionalLandDpayment_dynamic[t,r] = (p.emissionsshare[t,r] - p.damagesshare[t,r]) .* p.DAMAGES[t,r]
+
 
         # Calculate per capita tax revenue from globally recycled revenue (convert to $1000s/person to match pc consumption units).
         # Note, tax in dollars and population in millions, so scale by 1e9.
-        v.global_pc_revenue[t] = sum(v.tax_revenue[t,:] .* p.global_recycle_share[:]) / sum(p.regional_population[t,:]) / 1e9
+        v.global_pc_revenue[t] = sum(v.tax_revenue[t,:] .* p.global_recycle_share[:]) / sum(p.regional_population[t,:]) / 1e9 - - p.regionalLandDpayment * 1e12
 
         for r in d.regions
 

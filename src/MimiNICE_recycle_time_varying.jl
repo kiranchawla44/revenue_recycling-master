@@ -21,6 +21,11 @@ consumption_distribution_raw = DataFrame(load(joinpath(@__DIR__, "..", "data", "
 # Clean up and organize time-varying income distribution data into required NICE format (time × regions × quintiles).
 consumption_distributions = get_quintile_income_shares(consumption_distribution_raw)
 
+#load LandD payments file
+regionalLandDpayment = DataFrame(load(joinpath(@__DIR__, "..", "data", "regionalLandDpayment.csv")))
+
+
+
 # -------------------------------------------------
 # -------------------------------------------------
 # Create function to add revenue recyling to NICE.
@@ -48,6 +53,9 @@ function create_nice_recycle(;slope_type::Symbol=:central, percentile::Float64=0
     # Update parameters common to multiple components or that already have external Mimi parameters defined.
     update_param!(nice_rr, :l, un_population_data)
     update_param!(nice_rr, :quintile_pop, un_population_data ./ 5)
+    #L&D fixed values import
+    update_param!(nice_rr, :regionalLandDpayment,regionalLandDpayment) 
+
 
     # Set values for additional NICE and recycling parameters.
     set_param!(nice_rr, :nice_recycle, :min_study_gdp, minimum(elasticity_studies.pcGDP))
@@ -61,6 +69,12 @@ function create_nice_recycle(;slope_type::Symbol=:central, percentile::Float64=0
     set_param!(nice_rr, :nice_recycle, :global_carbon_tax, zeros(n_steps))
     set_param!(nice_rr, :nice_recycle, :lost_revenue_share, 0.0)
     set_param!(nice_rr, :nice_recycle, :global_recycle_share, zeros(12))
+        
+    #LandD params
+    set_param!(nice_rr, :nice_recycle, :damagesshare, zeros(n_steps,12))
+    set_param!(nice_rr, :nice_recycle, :emissionsshare, zeros(n_steps,12))
+    set_param!(nice_rr, :nice_recycle, :regionalLandDpayment, zeros(n_steps,12))
+
 
     # Create parameter connections (:component => :parameter).
     connect_param!(nice_rr, :nice_recycle => :industrial_emissions, :emissions       => :EIND)
@@ -69,6 +83,9 @@ function create_nice_recycle(;slope_type::Symbol=:central, percentile::Float64=0
     connect_param!(nice_rr, :nice_recycle => :Y,                    :nice_neteconomy => :Y)
     connect_param!(nice_rr, :nice_recycle => :CPC,                  :nice_neteconomy => :CPC)
     connect_param!(nice_rr, :nice_welfare => :quintile_c,           :nice_recycle    => :qc_post_recycle)
+
+    #LandD params
+    connect_param!(nice_rr, :nice_recycle => :DAMAGES,              :damages         => :DAMAGES)
 
     # Return NICE model with revenue recycling.
     return nice_rr
