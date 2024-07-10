@@ -65,10 +65,18 @@ function create_nice_recycle(;slope_type::Symbol=:central, percentile::Float64=0
     # Create parameter connections (:component => :parameter).
     connect_param!(nice_rr, :nice_recycle => :industrial_emissions, :emissions       => :EIND)
     connect_param!(nice_rr, :nice_recycle => :DAMFRAC,              :damages         => :DAMFRAC)
-    connect_param!(nice_rr, :nice_recycle => :ABATEFRAC,            :nice_neteconomy => :ABATEFRAC)
-    connect_param!(nice_rr, :nice_recycle => :Y,                    :nice_neteconomy => :Y)
-    connect_param!(nice_rr, :nice_recycle => :CPC,                  :nice_neteconomy => :CPC)
+    #removing parameters from nice_neteconomy that are not being calculated in the recycling module
+    #connect_param!(nice_rr, :nice_recycle => :ABATEFRAC,            :nice_neteconomy => :ABATEFRAC)
+    #connect_param!(nice_rr, :nice_recycle => :Y,                    :nice_neteconomy => :Y)
+    #connect_param!(nice_rr, :nice_recycle => :CPC,                  :nice_neteconomy => :CPC)
+    
     connect_param!(nice_rr, :nice_welfare => :quintile_c,           :nice_recycle    => :qc_post_recycle)
+    #linking net economy pieces to recycling module directly
+    connect_param!(nice_rr, :nice_recycle => :DAMAGES,              :damages         => :DAMAGES)    
+    connect_param!(nice_rr, :grosseconomy,    :I,          :nice_recycle, :I)
+    connect_param!(nice_rr, :nice_recycle, :YGROSS,     :grosseconomy,    :YGROSS)
+    connect_param!(nice_rr, :nice_recycle, :ABATECOST,  :emissions,       :ABATECOST)
+
 
     # Return NICE model with revenue recycling.
     return nice_rr

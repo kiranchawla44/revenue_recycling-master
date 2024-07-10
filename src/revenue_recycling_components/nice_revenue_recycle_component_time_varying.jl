@@ -22,6 +22,7 @@
     regional_population      = Parameter(index=[time, regions])            # Regional population levels (millions of people).
     ABATEFRAC                = Parameter(index=[time, regions])            # Cost of CO₂ emission reductions as share of gross economic output.
     DAMFRAC                  = Parameter(index=[time, regions])            # Climate damages as share of gross output.
+    DAMAGES                  = Parameter(index=[time, regions])            # Climate damages from RICE for L&D calcs in 2005 trillions $
     Y                        = Parameter(index=[time, regions])            # Gross world product net of abatement and damages (trillions 2005 USD yr⁻¹).
     CPC                      = Parameter(index=[time, regions])            # Regional per capita consumption (thousands 2005 USD yr⁻¹)
     industrial_emissions     = Parameter(index=[time, regions])            # Industrial carbon emissions (GtC yr⁻¹).
@@ -45,14 +46,54 @@
     qc_post_tax              = Variable(index=[time, regions, quintiles])  # Quintile per capita consumption after subtracting out carbon tax (thousands 2005 USD/person yr⁻¹).
     qc_post_recycle          = Variable(index=[time, regions, quintiles])  # Quintile per capita consumption after recycling tax back to quintiles (thousands 2005 USD/person yr⁻¹).
 
+    
+    #Adding NICE net economy elements that are not already included here to recalculate CPC after investment and L&D
+    YGROSS          = Parameter(index=[time, regions])           # Gross economic output (trillions 2005 USD yr⁻¹).
+    ABATECOST       = Parameter(index=[time, regions])           # Cost of CO₂ emission reductions (trillions 2005 USD yr⁻¹).
+    savings_share   = Parameter(index=[time, regions])           # Savings rate as share of gross economic output.
+    I               = Variable(index=[time, regions])            # Investment (trillions 2005 USD yr⁻¹).
+    C               = Variable(index=[time, regions])            # Regional consumption (trillions 2005 US dollars yr⁻¹).
+
+    
+    
 
     function run_timestep(p, v, d, t)
+        #moved the NICE net economy terms here 
+        
+        for r in d.regions
+
+            # MimiRICE2010 calculates abatement cost in dollars. Divide by YGROSS to get abatement as share of output.
+            v.ABATEFRAC[t,r] = p.ABATECOST[t,r] ./ p.YGROSS[t,r]
+
+            # Calculate net economic output following Equation 2 in Dennig et al. (PNAS 2015).
+            # Add L&D here
+            v.emissionsshare[t,r] = p.industrial_emissions[t,r]./sum(p.industrial_emissions[t,:])
+            v.damagesshare[t,r] = p.DAMAGES[t,r] ./ sum(p.DAMAGES[t,:])
+            v.regionalLandDpayment[t,r] = (v.emissionsshare[t,r] - v.damagesshare[t,r]) .* p.DAMAGES[t,r]
+
+            
+            v.Y[t,r] = (1.0 - v.ABATEFRAC[t,r]) / (1.0 + p.DAMFRAC[t,r]) * p.YGROSS[t,r] - v.regionalLandDpayment[t,r]
+
+            # Investment.
+            v.I[t,r] = p.savings_share[t,r] * v.Y[t,r]
+
+            # Regional consumption (RICE assumes no investment in final period).
+            if t.t != 60
+                v.C[t,r] = v.Y[t,r] - v.I[t,r]
+            else
+                v.C[t,r] = v.C[t-1, r]
+            end
+
+            # Regional per capita consumption net of investment and L&D payments (and damages + abatement). C is in trillions, pop is in millions, and CPC is in 1000s
+            v.CPC[t,r] = 1000 * v.C[t,r] / p.regional_population[t,r]
+
+
 
         for r in d.regions
 
             # Calculate net per capita income ($/person).
             # Note, Y in $trillions and population in millions, so scale by 1e6.
-            v.pc_gdp[t,r] = p.Y[t,r] / p.regional_population[t,r] * 1e6
+            v.pc_gdp[t,r] = 1e6 * (v.Y[t,r] + v.regionalLandDpayment[t,r]) ./ p.regional_population[t,r]
 
             # Calculate time-varying income elasticity of CO₂ price exposure (requires pc_gdp units in $/person).
             # Note, hold elasticity constant at boundary value if GDP falls outside the study support range.
@@ -75,12 +116,12 @@
 
         # Calculate per capita tax revenue from globally recycled revenue (convert to $1000s/person to match pc consumption units).
         # Note, tax in dollars and population in millions, so scale by 1e9.
-        v.global_pc_revenue[t] = sum(v.tax_revenue[t,:] .* p.global_recycle_share[:]) / sum(p.regional_population[t,:]) / 1e9
+        v.global_pc_revenue[t] = (sum(v.tax_revenue[t,:] .* p.global_recycle_share[:]) / (sum(p.regional_population[t,:]) .* 1e6)) ./ 1e3
 
         for r in d.regions
 
             # Calculate total recycled per capita tax revenue for each region (this also includes the globally recycled revenue).
-            v.regional_pc_revenue[t,r] = (v.tax_revenue[t,r] * (1-p.global_recycle_share[r])) / p.regional_population[t,r] / 1e9 + v.global_pc_revenue[t]
+            v.regional_pc_revenue[t,r] = (((v.tax_revenue[t,r] * (1-p.global_recycle_share[r])) / (p.regional_population[t,r] .* 1e6)) ./ 1e3) + v.global_pc_revenue[t]
 
             # Calculate quintile distribution shares of CO₂ tax burden and mitigation costs (assume both distributions are equal) and cliamte damages.
             v.abatement_cost_dist[t,r,:] = regional_quintile_distribution(v.CO₂_income_elasticity[t,r], p.quintile_income_shares[t,r,:])
@@ -88,7 +129,9 @@
             v.damage_dist[t,r,:]         = regional_quintile_distribution(p.damage_elasticity, p.quintile_income_shares[t,r,:])
 
             # Create a temporary variable used to calculate NICE baseline quintile consumption (just for convenience).
-            temp_C = 5.0 * p.CPC[t,r] * (1.0 + p.DAMFRAC[t,r]) / (1.0 - p.ABATEFRAC[t,r])
+            temp_C = (((p.YGROSS[t,r] - v.I[t,r] - v.regionalLandDpayment[t,r]) .* 1e12) ./ (p.regional_population[t,r] .* 1e6)) ./ 1e3
+            temp_damagespc = ((p.DAMAGES[t,r] * 1e12) ./ (p.regional_population[t,r] .* 1e6)) ./ 1e3
+            temp_abatementcost_pc = ((p.ABATECOST[t,r] * 1e12) ./ (p.regional_population[t,r] .* 1e6)) ./ 1e3
 
             for q in d.quintiles
 
@@ -97,14 +140,14 @@
 
                 # Calculate post-damage, post-abatement cost per capita quintile consumption (bounded below to ensure consumptions don't collapse to zero or go negative).
                 # Note, this differs from standard NICE equation because quintile CO₂ abatement cost and climate damage shares can now vary over time.
-                v.qc_post_damage_abatement[t,r,q] = max(v.qc_base[t,r,q] - (5.0 * p.CPC[t,r] * p.DAMFRAC[t,r] * v.damage_dist[t,r,q]) - (temp_C * p.ABATEFRAC[t,r] * v.abatement_cost_dist[t,r,q]), 1e-8)
-
+                v.qc_post_damage_abatement[t,r,q] = max(v.qc_base[t,r,q] - (temp_damagespc * v.damage_dist[t,r,q]) - (temp_abatementcost_pc * v.abatement_cost_dist[t,r,q]), 1e-8)
+                
                 # Subtract tax revenue from each quintile based on quintile CO₂ tax burden distributions.
                 # Note, per capita tax revenue and consumption should both be in 1000s dollars/person.
-                v.qc_post_tax[t,r,q] = v.qc_post_damage_abatement[t,r,q] - (5 * v.regional_pc_revenue[t,r] * v.carbon_tax_dist[t,r,q])
+                v.qc_post_tax[t,r,q] = v.qc_post_damage_abatement[t,r,q] - (v.regional_pc_revenue[t,r] * v.carbon_tax_dist[t,r,q])
 
                 # Recycle tax revenue by adding shares back to all quintiles (assume recycling shares constant over time).
-                v.qc_post_recycle[t,r,q] = v.qc_post_tax[t,r,q] + (5 * v.regional_pc_revenue[t,r] * p.recycle_share[r,q])
+                v.qc_post_recycle[t,r,q] = v.qc_post_tax[t,r,q] + (v.regional_pc_revenue[t,r] * p.recycle_share[r,q])
             end
         end
     end
