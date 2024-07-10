@@ -51,7 +51,7 @@
     # --------------------
     emissionsshare                = Parameter(index=[time, regions]) # share of emissions for L&D
     damagesshare                  = Parameter(index=[time, regions]) # share of damages for L&D
-    regionalLandDpayment_dynamic  = Parameter(index=[time, regions]) # calculate L&D payments in the model and output them for two-stage approach to optimization   
+    regionalLandDpayment_dynamic  = Parameter(index=[time, regions]) # calculate L&D payments in the model and output them for two-stage approach to optimization (trillions 2005USD)   
     DAMAGES                       = Parameter(index=[time, regions]) # Climate damages in trillions 2005USD.
     regionalLandDpayment          = Parameter(index=[time, regions]) # regionalLandDpayment_dynamic from base case revenue recycling output in trillions 2005USD (fixed exogenous stream instead of endogenous calculation).
 

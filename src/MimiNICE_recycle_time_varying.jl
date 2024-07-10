@@ -22,7 +22,7 @@ consumption_distribution_raw = DataFrame(load(joinpath(@__DIR__, "..", "data", "
 consumption_distributions = get_quintile_income_shares(consumption_distribution_raw)
 
 #load LandD payments file
-regionalLandDpayment = DataFrame(load(joinpath(@__DIR__, "..", "data", "regionalLandDpayment.csv")))
+regionalLandDpayment = Matrix(DataFrame(load(joinpath(@__DIR__, "..", "data", "regionalLandDpayment.csv"), skiplines_begin=1))[:, 1:end]) ./ 1e1
 
 
 
@@ -70,10 +70,10 @@ function create_nice_recycle(;slope_type::Symbol=:central, percentile::Float64=0
     set_param!(nice_rr, :nice_recycle, :lost_revenue_share, 0.0)
     set_param!(nice_rr, :nice_recycle, :global_recycle_share, zeros(12))
         
-    #LandD params
+    #LandD params initialization
     set_param!(nice_rr, :nice_recycle, :damagesshare, zeros(n_steps,12))
     set_param!(nice_rr, :nice_recycle, :emissionsshare, zeros(n_steps,12))
-    set_param!(nice_rr, :nice_recycle, :regionalLandDpayment, zeros(n_steps,12))
+    set_param!(nice_rr, :nice_recycle, :regionalLandDpayment_dynamic, zeros(n_steps,12))
 
 
     # Create parameter connections (:component => :parameter).

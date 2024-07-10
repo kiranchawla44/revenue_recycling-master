@@ -645,7 +645,7 @@ function save_nice_recycle_results(m_policy::Model, m_bau::Model, opt_tax::Array
     # LandDoutputs
     save(joinpath(regional_path, "emissionsshare.csv"), DataFrame(m_policy[:nice_recycle, :emissionsshare], :auto))
     save(joinpath(regional_path, "damagesshare.csv"), DataFrame(m_policy[:nice_recycle, :damagesshare], :auto))
-    save(joinpath(regional_path, "regionalLandDpayment.csv"), DataFrame(m_policy[:nice_recycle, :regionalLandDpayment], :auto))
+    save(joinpath(regional_path, "regionalLandDpayment.csv"), DataFrame(m_policy[:nice_recycle, :regionalLandDpayment_dynamic], :auto))
     save(joinpath(regional_path, "DAMAGES.csv"), DataFrame(m_policy[:nice_recycle, :DAMAGES], :auto))
     
                                             
