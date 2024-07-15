@@ -22,7 +22,7 @@ consumption_distribution_raw = DataFrame(load(joinpath(@__DIR__, "..", "data", "
 consumption_distributions = get_quintile_income_shares(consumption_distribution_raw)
 
 #load LandD payments file
-regionalLandDpayment = Matrix(DataFrame(load(joinpath(@__DIR__, "..", "data", "regionalLandDpayment.csv"), skiplines_begin=1))[:, 1:end]) ./ 1e1
+regionalLandDpayment = Matrix(DataFrame(load(joinpath(@__DIR__, "..", "data", "regionalLandDpayment.csv"), skiplines_begin=1))[:, 3:end]) ./ 1e1
 
 
 
